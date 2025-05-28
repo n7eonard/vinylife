@@ -8,37 +8,20 @@ import io
 import base64
 
 # === CONFIGURATION ===
-openai.api_key = st.secrets["OPENAI_API_KEY"]  # set this in .streamlit/secrets.toml
+openai.api_key = st.secrets["OPENAI_API_KEY"]  # set this in Streamlit Cloud secrets
 
 # === HELPER FUNCTIONS ===
-def extract_vinyl_info_from_image(image_bytes):
-    prompt = """
-    You are a vinyl record expert. Analyze the following photo of a vinyl cover and extract the most likely artist and album/EP title.
-    You must respond with a valid JSON object in this exact format, with no additional text or explanation:
-    {
-        "primary_guess": {
-            "artist": "Artist Name",
-            "album": "Album Name",
-            "confidence_score": 95
-        },
-        "alternative_guesses": [
-            {
-                "artist": "Alternative Artist 1",
-                "album": "Alternative Album 1",
-                "confidence_score": 85
-            },
-            {
-                "artist": "Alternative Artist 2",
-                "album": "Alternative Album 2",
-                "confidence_score": 75
-            }
-        ]
-    }
-    The response must be a single valid JSON object. Do not include any other text or explanation.
-    """
-    # Convert image bytes to base64 string
+def extract_vinyl_info_from_image(uploaded_image):
+    image_bytes = uploaded_image.read()
+    mime_type = uploaded_image.type  # e.g., 'image/jpeg' or 'image/png'
     base64_image = base64.b64encode(image_bytes).decode('utf-8')
-    
+    image_url = f"data:{mime_type};base64,{base64_image}"
+    prompt = (
+        "You are a vinyl record expert. Analyze the following image of a vinyl cover and extract the most likely artist and album/EP title. "
+        "Respond only with a valid JSON object in this format: "
+        '{"artist": "...", "album": "...", "confidence": 0-100} '
+        "If you are unsure, set confidence below 70."
+    )
     response = openai.chat.completions.create(
         model="gpt-4.1-mini",
         messages=[
@@ -46,12 +29,13 @@ def extract_vinyl_info_from_image(image_bytes):
             {
                 "role": "user",
                 "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                    {"type": "text", "text": "What is the artist and album on this vinyl cover?"},
+                    {"type": "image_url", "image_url": {"url": image_url}}
                 ]
             }
         ],
         max_tokens=500,
-        response_format={ "type": "json_object" }
+        response_format={"type": "json_object"}
     )
     return response.choices[0].message.content.strip()
 
@@ -85,6 +69,7 @@ def estimate_price(artist, album):
 # === STREAMLIT UI ===
 st.title("🎵 Vinyl AI Storyteller")
 st.markdown("Upload a photo of a vinyl cover to identify it and generate a story, recommendations, and price.")
+st.info("📸 For best results, upload a clear, well-lit, front-facing image of the vinyl cover.")
 
 uploaded_image = st.file_uploader("Upload a photo of a vinyl record", type=["jpg", "jpeg", "png"])
 
@@ -108,17 +93,17 @@ if uploaded_image:
         if st.session_state.step == 'guess':
             with st.spinner("Analyzing image with AI..."):
                 try:
-                    vinyl_info = extract_vinyl_info_from_image(uploaded_image.read())
+                    vinyl_info = extract_vinyl_info_from_image(uploaded_image)
                     with st.expander("Debug: Raw AI Response"):
                         st.code(vinyl_info)
                     info_dict = json.loads(vinyl_info)
-                    if not all(key in info_dict for key in ["primary_guess", "alternative_guesses"]):
+                    if not all(key in info_dict for key in ["artist", "album", "confidence"]):
                         raise ValueError("Missing required fields in response")
-                    primary_guess = info_dict["primary_guess"]
-                    if not all(key in primary_guess for key in ["artist", "album", "confidence_score"]):
-                        raise ValueError("Missing required fields in primary_guess")
+                    primary_guess = info_dict
+                    if primary_guess['confidence'] < 70:
+                        st.warning("Confidence is below 70%, please verify the identification.")
                     st.session_state.primary_guess = primary_guess
-                    st.session_state.alternatives = info_dict["alternative_guesses"]
+                    st.session_state.alternatives = []
                 except Exception as e:
                     st.error(f"AI analysis failed: {str(e)}")
                     st.stop()
@@ -130,7 +115,7 @@ if uploaded_image:
                 st.markdown(f"**Artist:** {primary_guess['artist']}")
                 st.markdown(f"**Album:** {primary_guess['album']}")
             with primary_col2:
-                st.metric("Confidence", f"{primary_guess['confidence_score']}%")
+                st.metric("Confidence", f"{primary_guess['confidence']}%")
             col1, col2 = st.columns(2)
             if col1.button("✅ Well done!", use_container_width=True, key="well_done_btn"):
                 st.session_state.selected_artist = primary_guess['artist']
@@ -150,7 +135,7 @@ if uploaded_image:
                         st.markdown(f"**Artist:** {alt['artist']}")
                         st.markdown(f"**Album:** {alt['album']}")
                     with alt_col2:
-                        st.metric("Confidence", f"{alt['confidence_score']}%")
+                        st.metric("Confidence", f"{alt['confidence']}%")
             options = ["Primary Guess"] + [f"Option {i}" for i in range(1, len(alternatives) + 1)]
             selected_option = st.radio(
                 "Select the correct identification:",
