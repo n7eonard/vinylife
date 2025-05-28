@@ -114,20 +114,31 @@ if uploaded_image:
                     try:
                         vinyl_info = extract_vinyl_info_from_image(uploaded_image)
 
-                        # Debugging: Print the raw API response to logs
-                        print(f"Raw API response before JSON load: {vinyl_info}")
+                        if not vinyl_info or vinyl_info.strip() == "":
+                            st.error("AI analysis failed: The AI did not return any data. The image may be unclear or there was an internal error. Please try again or upload a different image.")
+                            st.stop()
 
-                        if not vinyl_info:
-                             raise ValueError("API returned an empty or invalid response.")
+                        try:
+                            info_dict = json.loads(vinyl_info)
+                        except json.JSONDecodeError:
+                            st.error("AI analysis failed: The AI did not return valid JSON. This may be a temporary issue or the model was unable to analyze the image. See raw output below for debugging.")
+                            with st.expander("Show AI raw response (debug)"):
+                                st.code(vinyl_info)
+                            st.stop()
 
-                        info_dict = json.loads(vinyl_info)
-                        if not all(key in info_dict for key in ["artist", "album", "confidence"]):
-                            raise ValueError("Missing required fields in response")
+                        required_fields = {"artist", "album", "confidence"}
+                        if not required_fields.issubset(info_dict.keys()):
+                            st.error(f"AI analysis failed: Missing fields in AI response. Expected fields: {required_fields}. See raw output below for debugging.")
+                            with st.expander("Show AI raw response (debug)"):
+                                st.code(vinyl_info)
+                            st.stop()
+
                         primary_guess = info_dict
                         if primary_guess['confidence'] < 70:
                             st.warning("Confidence is below 70%, please verify the identification.")
                         st.session_state.primary_guess = primary_guess
                         st.session_state.alternatives = []
+
                     except Exception as e:
                         st.error(f"AI analysis failed: {str(e)}")
                         st.stop()
