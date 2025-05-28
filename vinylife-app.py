@@ -104,7 +104,7 @@ if uploaded_image:
     if st.session_state.step != 'results':
         col1, col2 = st.columns([3, 2])
         with col1:
-            st.image(uploaded_image, caption="Uploaded Vinyl Cover", use_column_width=True)
+            st.image(uploaded_image, caption="Uploaded Vinyl Cover", use_container_width=True)
         with col2:
             if st.session_state.step == 'guess':
                 with st.spinner("Analyzing image with AI..."):
