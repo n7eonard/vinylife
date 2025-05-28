@@ -167,6 +167,9 @@ if uploaded_image:
                     except Exception as e:
                         st.error(f"AI analysis failed: {str(e)}")
                         st.stop()
+                # Columns for action buttons
+                button_col1, button_col2 = st.columns(2)
+
                 # Show primary guess and actions
                 primary_guess = st.session_state.primary_guess
                 st.subheader("🎯 Primary Guess")
@@ -176,8 +179,7 @@ if uploaded_image:
                     st.markdown(f"**Album:** {primary_guess['album']}")
                 with primary_col2:
                     st.metric("Confidence", f"{primary_guess['confidence']}")
-                col1, col2 = st.columns(2)
-                if col1.button("✅ Well done!", use_container_width=True, key="well_done_btn"):
+                if button_col1.button("✅ Well done!", use_container_width=True, key="well_done_btn"):
                     # Perform web search and store results before moving to results step
                     search_query = f"{primary_guess['artist']} {primary_guess['album']} album history cultural impact"
                     web_search_results = default_api.web_search(search_term=search_query)
@@ -187,7 +189,7 @@ if uploaded_image:
                     st.session_state.selected_album = primary_guess['album']
                     st.session_state.step = 'results'
                     st.rerun()
-                if col2.button("❌ Not exactly", use_container_width=True, key="not_exactly_btn"):
+                if button_col2.button("❌ Not exactly", use_container_width=True, key="not_exactly_btn"):
                     st.session_state.step = 'alternatives'
                     st.rerun()
             elif st.session_state.step == 'alternatives':
