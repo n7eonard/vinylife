@@ -79,7 +79,7 @@ def display_similar_songs(recs):
 
         # Display the carousel
         # Add a unique key to the carousel component
-        carousel(carousel_items, speed=1.5, key="similar_songs_carousel")
+        carousel(carousel_items, key="similar_songs_carousel")
 
     except json.JSONDecodeError:
         st.error("Could not load recommendations (invalid format).")
@@ -296,9 +296,10 @@ if uploaded_image:
 
             col_story, col_insights = st.columns(2)
             with col_story:
-                st.markdown("<b>Story:</b> " + story, unsafe_allow_html=True)
+                st.markdown("### Story:", unsafe_allow_html=True)
+                st.markdown(story, unsafe_allow_html=True)
             with col_insights:
-                st.markdown("<b>Insights:</b>", unsafe_allow_html=True)
+                st.markdown("### Similar Songs:", unsafe_allow_html=True)
 
                 # Display similar songs using the helper function
                 display_similar_songs(recs)
