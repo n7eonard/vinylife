@@ -217,7 +217,6 @@ if uploaded_image:
             with col_story:
                 st.markdown("<b>Story:</b> " + story, unsafe_allow_html=True)
             with col_insights:
-                st.markdown("<b>Insights:</b>", unsafe_allow_html=True)
                 st.markdown("<b>Similar Songs:</b>", unsafe_allow_html=True)
                 try:
                     recs_json = json.loads(recs)
