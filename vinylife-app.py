@@ -315,11 +315,13 @@ if uploaded_image:
 
             st.markdown(f"<h1 style='margin-bottom: 1.5rem'>{artist} — {album}</h1>", unsafe_allow_html=True)
 
-            col_story, col_insights = st.columns(2)
+            col_story, col_songs, col_price = st.columns(3)
+            
             with col_story:
                 st.markdown("### Story:", unsafe_allow_html=True)
                 st.markdown(story, unsafe_allow_html=True)
-            with col_insights:
+            
+            with col_songs:
                 st.markdown("### Similar Songs:", unsafe_allow_html=True)
                 if recs_json is not None:
                     for rec in recs_json:
@@ -331,7 +333,7 @@ if uploaded_image:
                         st.markdown("---")
                 # If recs_json is None due to parsing error, the error is already displayed above.
 
-                # Web search for price extraction
+            with col_price:
                 st.markdown("### Estimated Price Range (Live Web):", unsafe_allow_html=True)
                 price_data = get_price_range_with_gpt_web_search(artist, album)
                 if price_data:
