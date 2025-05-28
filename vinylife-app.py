@@ -67,11 +67,7 @@ def extract_vinyl_info_from_image(uploaded_image):
         # Catch any other potential errors during the API call or response processing
         raise RuntimeError(f"Error during OpenAI API call: {e}")
 
-def generate_story(artist, album):
-    # Use web search to gather information
-    search_query = f"{artist} {album} album history cultural impact"
-    search_results = default_api.web_search(search_term=search_query)
-
+def generate_story(artist, album, search_results=None):
     # Format search results for the prompt (you might want to refine this formatting)
     search_context = ""
     if search_results and search_results.get('results'):
@@ -220,7 +216,11 @@ if uploaded_image:
                     st.rerun()
     elif st.session_state.step == 'results':
         with st.spinner("Story and insights generation..."):
-            story = generate_story(st.session_state.selected_artist, st.session_state.selected_album)
+            # Perform web search before generating story
+            search_query = f"{st.session_state.selected_artist} {st.session_state.selected_album} album history cultural impact"
+            web_search_results = default_api.web_search(search_term=search_query)
+            
+            story = generate_story(st.session_state.selected_artist, st.session_state.selected_album, search_results=web_search_results)
             recs = recommend_similar(st.session_state.selected_artist, st.session_state.selected_album)
             price = estimate_price(st.session_state.selected_artist, st.session_state.selected_album)
             # Large, bold title at the top
