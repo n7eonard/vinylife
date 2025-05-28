@@ -68,12 +68,25 @@ def extract_vinyl_info_from_image(uploaded_image):
         raise RuntimeError(f"Error during OpenAI API call: {e}")
 
 def generate_story(artist, album):
+    # Use web search to gather information
+    search_query = f"{artist} {album} album history cultural impact"
+    search_results = default_api.web_search(search_term=search_query)
+
+    # Format search results for the prompt (you might want to refine this formatting)
+    search_context = ""
+    if search_results and search_results.get('results'):
+        search_context = "\n\nRelevant information from web search:\n"
+        for i, result in enumerate(search_results['results'][:3]): # Limit to top 3 results
+            search_context += f"Source {i+1}: {result['snippet']}\n"
+
     prompt = f"""
     You are a passionate music historian. Write a short and captivating 150-word story about the artist {artist} and their album or EP titled '{album}'.
     Include cultural context, musical style, and legacy.
+    
+    {search_context}
     """
     response = openai.ChatCompletion.create(
-        model="gpt-4",
+        model="gpt-4", # Using a text-based model for story generation
         messages=[{"role": "user", "content": prompt}],
         temperature=0.8
     )
@@ -215,9 +228,10 @@ if uploaded_image:
             # Two columns for Story and Insights
             col_story, col_insights = st.columns(2)
             with col_story:
-                st.markdown("<b>Story:</b> " + story, unsafe_allow_html=True)
+                st.markdown("### Story:", unsafe_allow_html=True)
+                st.markdown(story, unsafe_allow_html=True)
             with col_insights:
-                st.markdown("<b>Similar Songs:</b>", unsafe_allow_html=True)
+                st.markdown("### Similar Songs:", unsafe_allow_html=True)
                 try:
                     recs_json = json.loads(recs)
                     for rec in recs_json:
