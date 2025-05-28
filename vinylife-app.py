@@ -78,11 +78,12 @@ def display_similar_songs(recs):
             <b>Artist:</b> {artist_}<br>
             <b>Why it's similar:</b> {why}
             """
-            carousel_items.append({"title": "", "text": content, "img": ""}) # Set title to empty as content contains details
+            # Provide text content directly; img can be None or omitted if text-only cards are supported
+            carousel_items.append({"title": title, "text": content}) # Removed img field, added title back for clarity in card
 
         # Display the carousel
         # Add a unique key to the carousel component
-        carousel(carousel_items, key="similar_songs_carousel")
+        carousel(carousel_items, key="similar_songs_carousel") # Keeping key
 
     except json.JSONDecodeError:
         st.error("Could not load recommendations (invalid format).")
@@ -302,7 +303,9 @@ if uploaded_image:
                 st.markdown("### Story:", unsafe_allow_html=True)
                 st.markdown(story, unsafe_allow_html=True)
             with col_insights:
-                st.markdown("### Similar Songs:", unsafe_allow_html=True)
+                # st.markdown("<b>Insights:</b>", unsafe_allow_html=True)
+                # Removed duplicate Similar Songs heading as it's added in display_similar_songs function
+                # st.markdown("### Similar Songs:", unsafe_allow_html=True)
 
                 # Display similar songs using the helper function
                 display_similar_songs(recs)
