@@ -42,6 +42,9 @@ def extract_vinyl_info_from_image(uploaded_image):
         if not vinyl_info:
             raise ValueError("API returned an empty or invalid response.")
 
+        # Debugging: Print the raw API response to logs
+        print(f"Raw API response before JSON load: {vinyl_info}")
+
         # The calling code in the UI already handles JSONDecodeError
         return vinyl_info
 
@@ -110,6 +113,9 @@ if uploaded_image:
                 with st.spinner("Analyzing image with AI..."):
                     try:
                         vinyl_info = extract_vinyl_info_from_image(uploaded_image)
+
+                        # Debugging: Print the raw API response to logs
+                        print(f"Raw API response before JSON load: {vinyl_info}")
 
                         if not vinyl_info:
                              raise ValueError("API returned an empty or invalid response.")
