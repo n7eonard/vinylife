@@ -320,11 +320,15 @@ if uploaded_image:
                 st.markdown("### Story:", unsafe_allow_html=True)
                 st.markdown(story, unsafe_allow_html=True)
             with col_insights:
-                st.markdown("<b>Insights:</b>", unsafe_allow_html=True)
-
-                # Display similar songs using the helper function (pass empty list for image URLs for now)
+                st.markdown("### Similar Songs:", unsafe_allow_html=True)
                 if recs_json is not None:
-                    display_similar_songs(recs_json, []) # Pass empty list for image URLs
+                    for rec in recs_json:
+                        title = rec.get("title", "Unknown Title")
+                        artist_ = rec.get("artist", "Unknown Artist")
+                        why = rec.get("why it's similar", rec.get("why", ""))
+                        st.markdown(f"**{title}** by {artist_}")
+                        st.markdown(f"*{why}*")
+                        st.markdown("---")
                 # If recs_json is None due to parsing error, the error is already displayed above.
 
                 # Web search for price extraction
