@@ -72,10 +72,13 @@ def display_similar_songs(recs):
             title = rec.get("title", "Unknown Title")
             artist_ = rec.get("artist", "Unknown Artist")
             why = rec.get("why it's similar", rec.get("why", ""))
-            # Using basic HTML for content within the card
-            content = f"<h4>{title} by {artist_}</h4><p>{why}</p>"
-            # Assuming no images for now, but adding 'img' field as per example
-            carousel_items.append({"title": title, "text": content, "img": ""}) # Add img field
+            # Using basic HTML/Markdown for content within the card for better presentation
+            content = f"""
+            <b>Title:</b> {title}<br>
+            <b>Artist:</b> {artist_}<br>
+            <b>Why it's similar:</b> {why}
+            """
+            carousel_items.append({"title": "", "text": content, "img": ""}) # Set title to empty as content contains details
 
         # Display the carousel
         # Add a unique key to the carousel component
