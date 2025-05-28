@@ -6,46 +6,60 @@ import json
 from PIL import Image
 import io
 import base64
-from langsmith import Client
-from langsmith.run_helpers import traceable
 from datetime import datetime, timedelta
 
 # === CONFIGURATION ===
 openai.api_key = st.secrets["OPENAI_API_KEY"]  # set this in Streamlit Cloud secrets
-client = Client(api_key="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")
+
+# Optional LangSmith integration
+try:
+    from langsmith import Client
+    from langsmith.run_helpers import traceable
+    LANGCHAIN_ENABLED = True
+    client = Client(api_key="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")
+except ImportError:
+    LANGCHAIN_ENABLED = False
+    traceable = lambda **kwargs: lambda f: f  # No-op decorator if langsmith is not available
 
 def get_confidence_stats():
     """Get confidence score statistics from LangSmith traces"""
-    # Get traces from the last 30 days
-    end_time = datetime.now()
-    start_time = end_time - timedelta(days=30)
-    
-    runs = client.list_runs(
-        run_type="chain",
-        name="extract_vinyl_info",
-        start_time=start_time,
-        end_time=end_time
-    )
-    
-    confidence_scores = []
-    for run in runs:
-        try:
-            # Extract confidence from the output
-            output = json.loads(run.outputs.get("output", "{}"))
-            if "confidence" in output:
-                confidence_scores.append(output["confidence"])
-        except:
-            continue
-    
-    if not confidence_scores:
+    if not LANGCHAIN_ENABLED:
         return None
-    
-    return {
-        "average": sum(confidence_scores) / len(confidence_scores),
-        "min": min(confidence_scores),
-        "max": max(confidence_scores),
-        "count": len(confidence_scores)
-    }
+        
+    try:
+        # Get traces from the last 30 days
+        end_time = datetime.now()
+        start_time = end_time - timedelta(days=30)
+        
+        runs = client.list_runs(
+            run_type="chain",
+            name="extract_vinyl_info",
+            start_time=start_time,
+            end_time=end_time
+        )
+        
+        confidence_scores = []
+        for run in runs:
+            try:
+                # Extract confidence from the output
+                output = json.loads(run.outputs.get("output", "{}"))
+                if "confidence" in output:
+                    confidence_scores.append(output["confidence"])
+            except:
+                continue
+        
+        if not confidence_scores:
+            return None
+        
+        return {
+            "average": sum(confidence_scores) / len(confidence_scores),
+            "min": min(confidence_scores),
+            "max": max(confidence_scores),
+            "count": len(confidence_scores)
+        }
+    except Exception as e:
+        st.warning(f"Could not fetch confidence statistics: {str(e)}")
+        return None
 
 @traceable(run_type="chain", name="extract_vinyl_info")
 def extract_vinyl_info_from_image(uploaded_image):
@@ -116,21 +130,22 @@ st.title("🎵 Vinyl AI Storyteller")
 st.markdown("Upload a photo of a vinyl cover to identify it and generate a story, recommendations, and price.")
 st.info("📸 For best results, upload a clear, well-lit, front-facing image of the vinyl cover.")
 
-# Add confidence statistics in a collapsible section
-with st.expander("📊 Confidence Score Statistics (Last 30 Days)"):
-    stats = get_confidence_stats()
-    if stats:
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Average Confidence", f"{stats['average']:.1f}%")
-        with col2:
-            st.metric("Minimum Confidence", f"{stats['min']:.1f}%")
-        with col3:
-            st.metric("Maximum Confidence", f"{stats['max']:.1f}%")
-        with col4:
-            st.metric("Total Analyses", stats['count'])
-    else:
-        st.info("No confidence score data available yet.")
+# Add confidence statistics in a collapsible section if LangSmith is enabled
+if LANGCHAIN_ENABLED:
+    with st.expander("📊 Confidence Score Statistics (Last 30 Days)"):
+        stats = get_confidence_stats()
+        if stats:
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Average Confidence", f"{stats['average']:.1f}%")
+            with col2:
+                st.metric("Minimum Confidence", f"{stats['min']:.1f}%")
+            with col3:
+                st.metric("Maximum Confidence", f"{stats['max']:.1f}%")
+            with col4:
+                st.metric("Total Analyses", stats['count'])
+        else:
+            st.info("No confidence score data available yet.")
 
 uploaded_image = st.file_uploader("Upload a photo of a vinyl record", type=["jpg", "jpeg", "png"])
 
