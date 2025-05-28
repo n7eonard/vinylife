@@ -300,45 +300,18 @@ if uploaded_image:
             story = generate_story(artist, album)
             recs = recommend_similar(artist, album)
 
-            # Process recommendations and find cover art
+            # Parse recommendations JSON
             recs_json = None
-            song_cover_urls = []
             try:
                 recs_json = json.loads(recs)
-                if recs_json:
-                    st.write("Searching for song cover art...") # Optional: add a message while searching
-                    for i, rec in enumerate(recs_json):
-                        title = rec.get("title", "Unknown Title")
-                        rec_artist = rec.get("artist", "Unknown Artist")
-                        search_term = f"{rec_artist} {title} album cover"
-                        # Perform web search for cover art
-                        cover_search_results = default_api.web_search(search_term=search_term, explanation=f"Searching for cover art for {title} by {rec_artist}")
-                        
-                        image_url = "https://via.placeholder.com/150?text=No+Image+Found" # Default placeholder
-                        if cover_search_results and cover_search_results.get('results'):
-                            # Attempt to find a direct image URL in the search results
-                            for result in cover_search_results['results']:
-                                if result.get('url') and ('.jpg' in result['url'].lower() or '.png' in result['url'].lower() or '.jpeg' in result['url'].lower()):
-                                     image_url = result['url']
-                                     break # Use the first image URL found
-                                # Fallback: use the URL of the page if no direct image URL found
-                                if result.get('url'):
-                                     # This is a fallback and might not be a direct image, handle carefully
-                                     # For now, let's prefer a direct image or the placeholder
-                                     pass # We already set a default placeholder
-
-                        song_cover_urls.append(image_url)
-
             except json.JSONDecodeError:
                 st.error("Could not parse recommendations (invalid format).")
                 with st.expander("Debug: Raw Recommendations Response"):
                     st.code(recs)
-                # Proceed to display other sections even if recommendations failed
             except Exception as e:
-                st.error(f"An error occurred while processing recommendations: {e}")
+                st.error(f"An error occurred while processing recommendations JSON: {e}")
                 with st.expander("Debug: Raw Recommendations Response"):
                     st.code(recs)
-                # Proceed to display other sections even if recommendations failed
 
             st.markdown(f"<h1 style='margin-bottom: 1.5rem'>{artist} — {album}</h1>", unsafe_allow_html=True)
 
@@ -349,9 +322,9 @@ if uploaded_image:
             with col_insights:
                 st.markdown("<b>Insights:</b>", unsafe_allow_html=True)
 
-                # Display similar songs using the helper function with parsed data and image URLs
+                # Display similar songs using the helper function (pass empty list for image URLs for now)
                 if recs_json is not None:
-                    display_similar_songs(recs_json, song_cover_urls)
+                    display_similar_songs(recs_json, []) # Pass empty list for image URLs
                 # If recs_json is None due to parsing error, the error is already displayed above.
 
                 # Web search for price extraction
