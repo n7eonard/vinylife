@@ -278,7 +278,7 @@ if uploaded_image:
                         st.code(recs)
 
                 # Web search for price extraction
-                st.markdown("<b>Estimated Price Range (Live Web):</b>", unsafe_allow_html=True)
+                st.markdown("### Estimated Price Range (Live Web):", unsafe_allow_html=True)
                 price_data = get_price_range_with_gpt_web_search(artist, album)
                 if price_data:
                     min_price = price_data.get("min")
