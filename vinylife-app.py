@@ -250,42 +250,78 @@ if uploaded_image:
                     st.session_state.step = 'results'
     elif st.session_state.step == 'results':
         with st.spinner("Story and insights generation..."):
-            # Retrieve search results from session state
-            web_search_results = st.session_state.get('search_results', None)
+            artist = st.session_state.selected_artist
+            album = st.session_state.selected_album
+            story = generate_story(artist, album)
+            recs = recommend_similar(artist, album)
+            # This is your new web search with price extraction!
+            st.markdown(f"<h1 style='margin-bottom: 1.5rem'>{artist} — {album}</h1>", unsafe_allow_html=True)
 
-            story = generate_story(st.session_state.selected_artist, st.session_state.selected_album, search_results=web_search_results)
-            recs = recommend_similar(st.session_state.selected_artist, st.session_state.selected_album)
-            
-            # Get price range using the new function
-            price_data = get_price_range_with_gpt_web_search(st.session_state.selected_artist, st.session_state.selected_album)
+            col_story, col_insights = st.columns(2)
+            with col_story:
+                st.markdown("<b>Story:</b> " + story, unsafe_allow_html=True)
+            with col_insights:
+                st.markdown("<b>Insights:</b>", unsafe_allow_html=True)
+                st.markdown("<b>Similar Songs:</b>", unsafe_allow_html=True)
+                try:
+                    recs_json = json.loads(recs)
+                    for rec in recs_json:
+                        title = rec.get("title", "Unknown Title")
+                        artist_ = rec.get("artist", "Unknown Artist")
+                        why = rec.get("why it's similar", rec.get("why", ""))
+                        st.markdown(f"<ul style='margin-bottom: 0.5rem'><li><b>{title}</b> by <i>{artist_}</i></li></ul>", unsafe_allow_html=True)
+                        if why:
+                            st.markdown(f"<div style='color: #666; margin-bottom: 1rem'>{why}</div>", unsafe_allow_html=True)
+                except json.JSONDecodeError:
+                    st.error("Could not load recommendations (invalid format).")
+                    with st.expander("Debug: Raw Recommendations Response"):
+                        st.code(recs)
 
-            st.markdown("### Estimated Price:", unsafe_allow_html=True)
+                # Web search for price extraction
+                st.markdown("<b>Estimated Price Range (Live Web):</b>", unsafe_allow_html=True)
+                price_data = get_price_range_with_gpt_web_search(artist, album)
+                if price_data:
+                    min_price = price_data.get("min")
+                    avg_price = price_data.get("average")
+                    max_price = price_data.get("max")
+                    
+                    # Ensure prices are numbers before casting to int
+                    try:
+                        min_price_int = int(float(min_price)) if min_price is not None else 0
+                        max_price_int = int(float(max_price)) if max_price is not None else 100 # Provide a default max if needed
+                        avg_price_int = int(float(avg_price)) if avg_price is not None else min_price_int
+                        
+                        # Adjust max_value if it's less than min_value or avg_value
+                        if max_price_int < min_price_int:
+                            max_price_int = min_price_int + 10
+                        if max_price_int < avg_price_int:
+                             max_price_int = avg_price_int + 10
 
-            if price_data and all(k in price_data for k in ["min", "average", "max"]):
-                min_price = price_data['min']
-                max_price = price_data['max']
-                avg_price = price_data['average']
+                        st.slider(
+                            "Web Price Range (EUR):",
+                            min_value=min_price_int,
+                            max_value=max_price_int,
+                            value=avg_price_int,
+                            step=1,
+                            format="%d",
+                            disabled=True
+                        )
+                        st.markdown(f"**Min:** €{min_price}  **Avg:** €{avg_price}  **Max:** €{max_price}")
+                        st.markdown("**Sample Listings:**")
+                        for ex in price_data.get("examples", []):
+                            price = ex.get("price")
+                            source = ex.get("source")
+                            url = ex.get("url")
+                            if price is not None and source is not None:
+                                if url:
+                                    st.markdown(f"- [€{price} on {source}]({url})", unsafe_allow_html=True)
+                                else:
+                                    st.markdown(f"- €{price} on {source}", unsafe_allow_html=True)
 
-                st.write(f"Based on web search, the estimated price range for this vinyl is **€{min_price} - €{max_price}**.")
+                    except (ValueError, TypeError) as e:
+                         st.warning(f"Could not parse price data: {e}. Raw data below.")
+                         with st.expander("Show raw price data (debug)"):
+                             st.json(price_data)
 
-                # Simple text-based scale
-                st.markdown(f"<div style='text-align: center; font-size: 1.2em;'>Min: €{min_price} | Avg: €{avg_price:.0f} | Max: €{max_price}</div>", unsafe_allow_html=True)
-
-                if price_data.get('examples'):
-                    with st.expander("Show price examples"):
-                        for example in price_data['examples']:
-                            price = example.get('price', 'N/A')
-                            source = example.get('source', 'N/A')
-                            url = example.get('url', '#')
-                            if url and url != '#':
-                                st.markdown(f"- €{price} on [{source}]({url})", unsafe_allow_html=True)
-                            else:
-                                st.markdown(f"- €{price} on {source}", unsafe_allow_html=True)
-            elif price_data is not None:
-                 st.warning("Could not retrieve a clear price range from the web search. See raw data below.")
-                 with st.expander("Show raw price data (debug)"):
-                    st.json(price_data)
-            else:
-                st.error("Failed to perform web search for price.")
-
-            # We will add the web search for price here
+                else:
+                    st.warning("Could not retrieve price data from the web.")
