@@ -6,6 +6,7 @@ import json
 from PIL import Image
 import io
 import base64
+from streamlit_carousel import carousel
 
 def get_price_range_with_gpt_web_search(artist, album):
     prompt = (
@@ -50,11 +51,44 @@ def clean_json_response(response):
     # Remove triple backticks and any leading language labels (e.g., ```json)
     response = re.sub(r"^```[a-zA-Z0-9]*\s*", "", response)
     response = re.sub(r"\s*```$", "", response)
-    # Extract the first valid JSON object
+    # Extract JSON
     match = re.search(r"({.*})", response, re.DOTALL)
     if match:
         return match.group(1)
     return response
+
+# Helper function to display similar songs using a carousel
+def display_similar_songs(recs):
+    st.markdown("### Similar Songs:", unsafe_allow_html=True)
+    try:
+        recs_json = json.loads(recs)
+        if not recs_json:
+            st.info("No similar songs recommended.")
+            return
+
+        # Create items for the carousel
+        carousel_items = []
+        for rec in recs_json:
+            title = rec.get("title", "Unknown Title")
+            artist_ = rec.get("artist", "Unknown Artist")
+            why = rec.get("why it's similar", rec.get("why", ""))
+            # Using basic HTML for content within the card
+            content = f"<h4>{title} by {artist_}</h4><p>{why}</p>"
+            # Assuming no images for now, but adding 'img' field as per example
+            carousel_items.append({"title": title, "text": content, "img": ""}) # Add img field
+
+        # Display the carousel
+        # Add a unique key to the carousel component
+        carousel(carousel_items, speed=1.5, key="similar_songs_carousel")
+
+    except json.JSONDecodeError:
+        st.error("Could not load recommendations (invalid format).")
+        with st.expander("Debug: Raw Recommendations Response"):
+            st.code(recs)
+    except Exception as e:
+        st.error(f"An error occurred while displaying recommendations: {e}")
+        with st.expander("Debug: Raw Recommendations Response"):
+            st.code(recs)
 
 # === CONFIGURATION ===
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -262,20 +296,9 @@ if uploaded_image:
                 st.markdown("<b>Story:</b> " + story, unsafe_allow_html=True)
             with col_insights:
                 st.markdown("<b>Insights:</b>", unsafe_allow_html=True)
-                st.markdown("<b>Similar Songs:</b>", unsafe_allow_html=True)
-                try:
-                    recs_json = json.loads(recs)
-                    for rec in recs_json:
-                        title = rec.get("title", "Unknown Title")
-                        artist_ = rec.get("artist", "Unknown Artist")
-                        why = rec.get("why it's similar", rec.get("why", ""))
-                        st.markdown(f"<ul style='margin-bottom: 0.5rem'><li><b>{title}</b> by <i>{artist_}</i></li></ul>", unsafe_allow_html=True)
-                        if why:
-                            st.markdown(f"<div style='color: #666; margin-bottom: 1rem'>{why}</div>", unsafe_allow_html=True)
-                except json.JSONDecodeError:
-                    st.error("Could not load recommendations (invalid format).")
-                    with st.expander("Debug: Raw Recommendations Response"):
-                        st.code(recs)
+
+                # Display similar songs using the helper function
+                display_similar_songs(recs)
 
                 # Web search for price extraction
                 st.markdown("### Estimated Price Range (Live Web):", unsafe_allow_html=True)
