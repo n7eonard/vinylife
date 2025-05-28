@@ -86,80 +86,98 @@ if 'primary_guess' not in st.session_state:
     st.session_state.primary_guess = None
 
 if uploaded_image:
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        st.image(uploaded_image, caption="Uploaded Vinyl Cover", use_container_width=True)
-    with col2:
-        if st.session_state.step == 'guess':
-            with st.spinner("Analyzing image with AI..."):
+    if st.session_state.step != 'results':
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            st.image(uploaded_image, caption="Uploaded Vinyl Cover", use_container_width=True)
+        with col2:
+            if st.session_state.step == 'guess':
+                with st.spinner("Analyzing image with AI..."):
+                    try:
+                        vinyl_info = extract_vinyl_info_from_image(uploaded_image)
+                        with st.expander("Debug: Raw AI Response"):
+                            st.code(vinyl_info)
+                        info_dict = json.loads(vinyl_info)
+                        if not all(key in info_dict for key in ["artist", "album", "confidence"]):
+                            raise ValueError("Missing required fields in response")
+                        primary_guess = info_dict
+                        if primary_guess['confidence'] < 70:
+                            st.warning("Confidence is below 70%, please verify the identification.")
+                        st.session_state.primary_guess = primary_guess
+                        st.session_state.alternatives = []
+                    except Exception as e:
+                        st.error(f"AI analysis failed: {str(e)}")
+                        st.stop()
+                # Show primary guess and actions
+                primary_guess = st.session_state.primary_guess
+                st.subheader("🎯 Primary Guess")
+                primary_col1, primary_col2 = st.columns([2, 1])
+                with primary_col1:
+                    st.markdown(f"**Artist:** {primary_guess['artist']}")
+                    st.markdown(f"**Album:** {primary_guess['album']}")
+                with primary_col2:
+                    st.metric("Confidence", f"{primary_guess['confidence']}%")
+                col1, col2 = st.columns(2)
+                if col1.button("✅ Well done!", use_container_width=True, key="well_done_btn"):
+                    st.session_state.selected_artist = primary_guess['artist']
+                    st.session_state.selected_album = primary_guess['album']
+                    st.session_state.step = 'results'
+                    st.rerun()
+                if col2.button("❌ Not exactly", use_container_width=True, key="not_exactly_btn"):
+                    st.session_state.step = 'alternatives'
+                    st.rerun()
+            elif st.session_state.step == 'alternatives':
+                st.subheader("🔄 Alternative Guesses")
+                alternatives = st.session_state.alternatives
+                for i, alt in enumerate(alternatives, 1):
+                    with st.expander(f"Option {i} - {alt['artist']} - {alt['album']}"):
+                        alt_col1, alt_col2 = st.columns([2, 1])
+                        with alt_col1:
+                            st.markdown(f"**Artist:** {alt['artist']}")
+                            st.markdown(f"**Album:** {alt['album']}")
+                        with alt_col2:
+                            st.metric("Confidence", f"{alt['confidence']}%")
+                options = ["Primary Guess"] + [f"Option {i}" for i in range(1, len(alternatives) + 1)]
+                selected_option = st.radio(
+                    "Select the correct identification:",
+                    options,
+                    key="alt_radio"
+                )
+                if selected_option == "Primary Guess":
+                    artist = st.session_state.primary_guess['artist']
+                    album = st.session_state.primary_guess['album']
+                else:
+                    option_idx = int(selected_option.split()[-1]) - 1
+                    artist = alternatives[option_idx]['artist']
+                    album = alternatives[option_idx]['album']
+                if st.button("🔮 Generate Story & Insights", use_container_width=True, key="alt_generate_btn"):
+                    st.session_state.selected_artist = artist
+                    st.session_state.selected_album = album
+                    st.session_state.step = 'results'
+                    st.rerun()
+    elif st.session_state.step == 'results':
+        with st.spinner("Story and insights generation..."):
+            story = generate_story(st.session_state.selected_artist, st.session_state.selected_album)
+            recs = recommend_similar(st.session_state.selected_artist, st.session_state.selected_album)
+            price = estimate_price(st.session_state.selected_artist, st.session_state.selected_album)
+            # Large, bold title at the top
+            st.markdown(f"<h1 style='margin-bottom: 1.5rem'>{st.session_state.selected_artist} — {st.session_state.selected_album}</h1>", unsafe_allow_html=True)
+            # Two columns for Story and Insights
+            col_story, col_insights = st.columns(2)
+            with col_story:
+                st.markdown("<b>Story:</b> " + story, unsafe_allow_html=True)
+            with col_insights:
+                st.markdown("<b>Insights:</b>", unsafe_allow_html=True)
+                st.markdown("<b>Similar Songs:</b>", unsafe_allow_html=True)
                 try:
-                    vinyl_info = extract_vinyl_info_from_image(uploaded_image)
-                    with st.expander("Debug: Raw AI Response"):
-                        st.code(vinyl_info)
-                    info_dict = json.loads(vinyl_info)
-                    if not all(key in info_dict for key in ["artist", "album", "confidence"]):
-                        raise ValueError("Missing required fields in response")
-                    primary_guess = info_dict
-                    if primary_guess['confidence'] < 70:
-                        st.warning("Confidence is below 70%, please verify the identification.")
-                    st.session_state.primary_guess = primary_guess
-                    st.session_state.alternatives = []
-                except Exception as e:
-                    st.error(f"AI analysis failed: {str(e)}")
-                    st.stop()
-            # Show primary guess and actions
-            primary_guess = st.session_state.primary_guess
-            st.subheader("🎯 Primary Guess")
-            primary_col1, primary_col2 = st.columns([2, 1])
-            with primary_col1:
-                st.markdown(f"**Artist:** {primary_guess['artist']}")
-                st.markdown(f"**Album:** {primary_guess['album']}")
-            with primary_col2:
-                st.metric("Confidence", f"{primary_guess['confidence']}%")
-            col1, col2 = st.columns(2)
-            if col1.button("✅ Well done!", use_container_width=True, key="well_done_btn"):
-                st.session_state.selected_artist = primary_guess['artist']
-                st.session_state.selected_album = primary_guess['album']
-                st.session_state.step = 'results'
-                st.rerun()
-            if col2.button("❌ Not exactly", use_container_width=True, key="not_exactly_btn"):
-                st.session_state.step = 'alternatives'
-                st.rerun()
-        elif st.session_state.step == 'alternatives':
-            st.subheader("🔄 Alternative Guesses")
-            alternatives = st.session_state.alternatives
-            for i, alt in enumerate(alternatives, 1):
-                with st.expander(f"Option {i} - {alt['artist']} - {alt['album']}"):
-                    alt_col1, alt_col2 = st.columns([2, 1])
-                    with alt_col1:
-                        st.markdown(f"**Artist:** {alt['artist']}")
-                        st.markdown(f"**Album:** {alt['album']}")
-                    with alt_col2:
-                        st.metric("Confidence", f"{alt['confidence']}%")
-            options = ["Primary Guess"] + [f"Option {i}" for i in range(1, len(alternatives) + 1)]
-            selected_option = st.radio(
-                "Select the correct identification:",
-                options,
-                key="alt_radio"
-            )
-            if selected_option == "Primary Guess":
-                artist = st.session_state.primary_guess['artist']
-                album = st.session_state.primary_guess['album']
-            else:
-                option_idx = int(selected_option.split()[-1]) - 1
-                artist = alternatives[option_idx]['artist']
-                album = alternatives[option_idx]['album']
-            if st.button("🔮 Generate Story & Insights", use_container_width=True, key="alt_generate_btn"):
-                st.session_state.selected_artist = artist
-                st.session_state.selected_album = album
-                st.session_state.step = 'results'
-                st.rerun()
-        elif st.session_state.step == 'results':
-            with st.spinner("Story and insights generation..."):
-                story = generate_story(st.session_state.selected_artist, st.session_state.selected_album)
-                recs = recommend_similar(st.session_state.selected_artist, st.session_state.selected_album)
-                price = estimate_price(st.session_state.selected_artist, st.session_state.selected_album)
-                st.subheader("✨ Results")
-                st.markdown(f"**Story:**\n{story}")
-                st.markdown(f"**Similar Songs:**\n{recs}")
-                st.markdown(f"**Estimated Price:** {price}")
+                    recs_json = json.loads(recs)
+                    for rec in recs_json:
+                        title = rec.get("title", "Unknown Title")
+                        artist = rec.get("artist", "Unknown Artist")
+                        why = rec.get("why it's similar", rec.get("why", ""))
+                        st.markdown(f"<ul style='margin-bottom: 0.5rem'><li><b>{title}</b> by <i>{artist}</i></li></ul>", unsafe_allow_html=True)
+                        if why:
+                            st.markdown(f"<div style='color: #666; margin-bottom: 1rem'>{why}</div>", unsafe_allow_html=True)
+                except Exception:
+                    st.markdown(f"{recs}")
+                st.markdown(f"<b>Estimated Price:</b> {price}", unsafe_allow_html=True)
