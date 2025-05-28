@@ -180,15 +180,9 @@ if uploaded_image:
                 with primary_col2:
                     st.metric("Confidence", f"{primary_guess['confidence']}")
                 if button_col1.button("✅ Well done!", use_container_width=True, key="well_done_btn"):
-                    # Perform web search and store results before moving to results step
-                    search_query = f"{primary_guess['artist']} {primary_guess['album']} album history cultural impact"
-                    web_search_results = default_api.web_search(search_term=search_query)
-                    st.session_state.search_results = web_search_results
-
                     st.session_state.selected_artist = primary_guess['artist']
                     st.session_state.selected_album = primary_guess['album']
                     st.session_state.step = 'results'
-                    st.rerun()
                 if button_col2.button("❌ Not exactly", use_container_width=True, key="not_exactly_btn"):
                     st.session_state.step = 'alternatives'
                     st.rerun()
@@ -217,15 +211,9 @@ if uploaded_image:
                     artist = alternatives[option_idx]['artist']
                     album = alternatives[option_idx]['album']
                 if st.button("🔮 Generate Story & Insights", use_container_width=True, key="alt_generate_btn"):
-                    # Perform web search and store results before moving to results step
-                    search_query = f"{artist} {album} album history cultural impact"
-                    web_search_results = default_api.web_search(search_term=search_query)
-                    st.session_state.search_results = web_search_results
-
                     st.session_state.selected_artist = artist
                     st.session_state.selected_album = album
                     st.session_state.step = 'results'
-                    st.rerun()
     elif st.session_state.step == 'results':
         with st.spinner("Story and insights generation..."):
             # Retrieve search results from session state
