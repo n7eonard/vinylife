@@ -58,41 +58,45 @@ def clean_json_response(response):
     return response
 
 # Helper function to display similar songs using a carousel
-def display_similar_songs(recs):
+def display_similar_songs(recs_json, song_cover_urls):
     st.markdown("### Similar Songs:", unsafe_allow_html=True)
     try:
-        recs_json = json.loads(recs)
         if not recs_json:
             st.info("No similar songs recommended.")
             return
 
         # Create items for the carousel
         carousel_items = []
-        for rec in recs_json:
+        for i, rec in enumerate(recs_json):
             title = rec.get("title", "Unknown Title")
             artist_ = rec.get("artist", "Unknown Artist")
             why = rec.get("why it's similar", rec.get("why", ""))
+            
+            # Get the corresponding image URL
+            image_url = song_cover_urls[i] if i < len(song_cover_urls) else "https://via.placeholder.com/150?text=No+Image"
+
             # Using basic HTML/Markdown for content within the card for better presentation
             content = f"""
             <b>Title:</b> {title}<br>
             <b>Artist:</b> {artist_}<br>
             <b>Why it's similar:</b> {why}
             """
-            # Provide text content directly; img can be None or omitted if text-only cards are supported
-            carousel_items.append({"title": title, "text": content}) # Removed img field, added title back for clarity in card
+            carousel_items.append({"title": "", "text": content, "img": image_url}) # Include the image_url
 
         # Display the carousel
         # Add a unique key to the carousel component
         carousel(carousel_items, key="similar_songs_carousel") # Keeping key
 
     except json.JSONDecodeError:
+        # This block might not be reached if recs_json is already parsed, but kept for robustness
         st.error("Could not load recommendations (invalid format).")
         with st.expander("Debug: Raw Recommendations Response"):
-            st.code(recs)
+            # Assuming raw recs is needed here, but we only have recs_json
+            st.json(recs_json) # Display parsed JSON if raw is not available
     except Exception as e:
         st.error(f"An error occurred while displaying recommendations: {e}")
-        with st.expander("Debug: Raw Recommendations Response"):
-            st.code(recs)
+        with st.expander("Debug: Recommendations Data"):
+            st.json(recs_json) # Display parsed JSON for debugging
 
 # === CONFIGURATION ===
 openai.api_key = st.secrets["OPENAI_API_KEY"]
@@ -295,7 +299,47 @@ if uploaded_image:
             album = st.session_state.selected_album
             story = generate_story(artist, album)
             recs = recommend_similar(artist, album)
-            # This is your new web search with price extraction!
+
+            # Process recommendations and find cover art
+            recs_json = None
+            song_cover_urls = []
+            try:
+                recs_json = json.loads(recs)
+                if recs_json:
+                    st.write("Searching for song cover art...") # Optional: add a message while searching
+                    for i, rec in enumerate(recs_json):
+                        title = rec.get("title", "Unknown Title")
+                        rec_artist = rec.get("artist", "Unknown Artist")
+                        search_term = f"{rec_artist} {title} album cover"
+                        # Perform web search for cover art
+                        cover_search_results = default_api.web_search(search_term=search_term, explanation=f"Searching for cover art for {title} by {rec_artist}")
+                        
+                        image_url = "https://via.placeholder.com/150?text=No+Image+Found" # Default placeholder
+                        if cover_search_results and cover_search_results.get('results'):
+                            # Attempt to find a direct image URL in the search results
+                            for result in cover_search_results['results']:
+                                if result.get('url') and ('.jpg' in result['url'].lower() or '.png' in result['url'].lower() or '.jpeg' in result['url'].lower()):
+                                     image_url = result['url']
+                                     break # Use the first image URL found
+                                # Fallback: use the URL of the page if no direct image URL found
+                                if result.get('url'):
+                                     # This is a fallback and might not be a direct image, handle carefully
+                                     # For now, let's prefer a direct image or the placeholder
+                                     pass # We already set a default placeholder
+
+                        song_cover_urls.append(image_url)
+
+            except json.JSONDecodeError:
+                st.error("Could not parse recommendations (invalid format).")
+                with st.expander("Debug: Raw Recommendations Response"):
+                    st.code(recs)
+                # Proceed to display other sections even if recommendations failed
+            except Exception as e:
+                st.error(f"An error occurred while processing recommendations: {e}")
+                with st.expander("Debug: Raw Recommendations Response"):
+                    st.code(recs)
+                # Proceed to display other sections even if recommendations failed
+
             st.markdown(f"<h1 style='margin-bottom: 1.5rem'>{artist} — {album}</h1>", unsafe_allow_html=True)
 
             col_story, col_insights = st.columns(2)
@@ -303,12 +347,12 @@ if uploaded_image:
                 st.markdown("### Story:", unsafe_allow_html=True)
                 st.markdown(story, unsafe_allow_html=True)
             with col_insights:
-                # st.markdown("<b>Insights:</b>", unsafe_allow_html=True)
-                # Removed duplicate Similar Songs heading as it's added in display_similar_songs function
-                # st.markdown("### Similar Songs:", unsafe_allow_html=True)
+                st.markdown("<b>Insights:</b>", unsafe_allow_html=True)
 
-                # Display similar songs using the helper function
-                display_similar_songs(recs)
+                # Display similar songs using the helper function with parsed data and image URLs
+                if recs_json is not None:
+                    display_similar_songs(recs_json, song_cover_urls)
+                # If recs_json is None due to parsing error, the error is already displayed above.
 
                 # Web search for price extraction
                 st.markdown("### Estimated Price Range (Live Web):", unsafe_allow_html=True)
