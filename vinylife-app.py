@@ -6,11 +6,15 @@ import json
 from PIL import Image
 import io
 import base64
+from langsmith import Client
+from langsmith.run_helpers import traceable
 
 # === CONFIGURATION ===
 openai.api_key = st.secrets["OPENAI_API_KEY"]  # set this in Streamlit Cloud secrets
+client = Client(api_key="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")
 
 # === HELPER FUNCTIONS ===
+@traceable(run_type="chain", name="extract_vinyl_info")
 def extract_vinyl_info_from_image(uploaded_image):
     image_bytes = uploaded_image.read()
     mime_type = uploaded_image.type  # e.g., 'image/jpeg' or 'image/png'
@@ -39,6 +43,7 @@ def extract_vinyl_info_from_image(uploaded_image):
     )
     return response.choices[0].message.content.strip()
 
+@traceable(run_type="chain", name="generate_story")
 def generate_story(artist, album):
     prompt = f"""
     You are a passionate music historian. Write a short and captivating 150-word story about the artist {artist} and their album or EP titled '{album}'.
@@ -51,6 +56,7 @@ def generate_story(artist, album):
     )
     return response.choices[0].message.content.strip()
 
+@traceable(run_type="chain", name="recommend_similar")
 def recommend_similar(artist, album):
     prompt = f'''
     Suggest 3 songs similar to any track from the album '{album}' by {artist}.
