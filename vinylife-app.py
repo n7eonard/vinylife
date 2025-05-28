@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 # === CONFIGURATION ===
 openai.api_key = st.secrets["OPENAI_API_KEY"]  # set this in Streamlit Cloud secrets
+ADMIN_EMAIL = st.secrets.get("ADMIN_EMAIL", "nicolasleonard@Nicolass-MacBook-Pro.local")  # set this in Streamlit Cloud secrets
 
 # Optional LangSmith integration
 try:
@@ -130,22 +131,27 @@ st.title("🎵 Vinyl AI Storyteller")
 st.markdown("Upload a photo of a vinyl cover to identify it and generate a story, recommendations, and price.")
 st.info("📸 For best results, upload a clear, well-lit, front-facing image of the vinyl cover.")
 
-# Add confidence statistics in a collapsible section if LangSmith is enabled
+# Add confidence statistics in a collapsible section if LangSmith is enabled and user is admin
 if LANGCHAIN_ENABLED:
-    with st.expander("📊 Confidence Score Statistics (Last 30 Days)"):
-        stats = get_confidence_stats()
-        if stats:
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Average Confidence", f"{stats['average']:.1f}%")
-            with col2:
-                st.metric("Minimum Confidence", f"{stats['min']:.1f}%")
-            with col3:
-                st.metric("Maximum Confidence", f"{stats['max']:.1f}%")
-            with col4:
-                st.metric("Total Analyses", stats['count'])
-        else:
-            st.info("No confidence score data available yet.")
+    # Get the current user's email from Streamlit
+    current_user = st.experimental_user.email if hasattr(st, 'experimental_user') else None
+    
+    # Only show statistics to admin
+    if current_user == ADMIN_EMAIL:
+        with st.expander("📊 Confidence Score Statistics (Last 30 Days)"):
+            stats = get_confidence_stats()
+            if stats:
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Average Confidence", f"{stats['average']:.1f}%")
+                with col2:
+                    st.metric("Minimum Confidence", f"{stats['min']:.1f}%")
+                with col3:
+                    st.metric("Maximum Confidence", f"{stats['max']:.1f}%")
+                with col4:
+                    st.metric("Total Analyses", stats['count'])
+            else:
+                st.info("No confidence score data available yet.")
 
 uploaded_image = st.file_uploader("Upload a photo of a vinyl record", type=["jpg", "jpeg", "png"])
 
