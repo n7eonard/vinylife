@@ -40,7 +40,7 @@ def extract_vinyl_info_from_image(uploaded_image):
         vinyl_info = response.choices[0].message.content.strip()
 
         if not vinyl_info:
-            raise ValueError("API returned an empty response.")
+            raise ValueError("API returned an empty or invalid response.")
 
         # The calling code in the UI already handles JSONDecodeError
         return vinyl_info
@@ -110,6 +110,10 @@ if uploaded_image:
                 with st.spinner("Analyzing image with AI..."):
                     try:
                         vinyl_info = extract_vinyl_info_from_image(uploaded_image)
+
+                        if not vinyl_info:
+                             raise ValueError("API returned an empty or invalid response.")
+
                         info_dict = json.loads(vinyl_info)
                         if not all(key in info_dict for key in ["artist", "album", "confidence"]):
                             raise ValueError("Missing required fields in response")
