@@ -7,6 +7,21 @@ from PIL import Image
 import io
 import base64
 
+# Helper function to clean AI JSON responses
+def clean_json_response(response):
+    """
+    Remove code block markers and extract the first valid JSON object.
+    """
+    response = response.strip()
+    # Remove triple backticks and any leading language labels (e.g., ```json)
+    response = re.sub(r"^```[a-zA-Z0-9]*\s*", "", response)
+    response = re.sub(r"\s*```$", "", response)
+    # Extract the first valid JSON object
+    match = re.search(r"({.*})", response, re.DOTALL)
+    if match:
+        return match.group(1)
+    return response
+
 # === CONFIGURATION ===
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
@@ -119,7 +134,8 @@ if uploaded_image:
                             st.stop()
 
                         try:
-                            info_dict = json.loads(vinyl_info)
+                            cleaned = clean_json_response(vinyl_info)
+                            info_dict = json.loads(cleaned)
                         except json.JSONDecodeError:
                             st.error("AI analysis failed: The AI did not return valid JSON. This may be a temporary issue or the model was unable to analyze the image. See raw output below for debugging.")
                             with st.expander("Show AI raw response (debug)"):
