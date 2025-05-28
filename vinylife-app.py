@@ -328,9 +328,16 @@ if uploaded_image:
                         title = rec.get("title", "Unknown Title")
                         artist_ = rec.get("artist", "Unknown Artist")
                         why = rec.get("why it's similar", rec.get("why", ""))
-                        st.markdown(f"**{title}** by {artist_}")
-                        st.markdown(f"*{why}*")
-                        st.markdown("---")
+                        
+                        # Create a container for each song recommendation
+                        st.markdown(f"""
+                            <div style='margin-bottom: 1rem;'>
+                                <div style='font-size: 1.1rem; font-weight: bold;'>{title}</div>
+                                <div style='font-size: 1rem; margin-bottom: 0.5rem;'>by {artist_}</div>
+                                <div style='font-size: 0.9rem; color: #666;'>{why}</div>
+                            </div>
+                            <hr style='margin: 1rem 0;'>
+                        """, unsafe_allow_html=True)
                 # If recs_json is None due to parsing error, the error is already displayed above.
 
             with col_price:
