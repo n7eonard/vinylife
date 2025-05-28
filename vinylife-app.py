@@ -259,4 +259,5 @@ if uploaded_image:
                     with st.expander("Debug: Raw Recommendations Response"):
                         st.code(recs)
 
-                st.markdown(f"<b>Estimated Price:</b> {price}", unsafe_allow_html=True)
+                st.markdown("### Estimated Price:", unsafe_allow_html=True)
+                # We will add the web search for price here
