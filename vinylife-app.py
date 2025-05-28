@@ -101,8 +101,6 @@ if uploaded_image:
                 with st.spinner("Analyzing image with AI..."):
                     try:
                         vinyl_info = extract_vinyl_info_from_image(uploaded_image)
-                        with st.expander("Debug: Raw AI Response"):
-                            st.code(vinyl_info)
                         info_dict = json.loads(vinyl_info)
                         if not all(key in info_dict for key in ["artist", "album", "confidence"]):
                             raise ValueError("Missing required fields in response")
