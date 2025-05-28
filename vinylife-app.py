@@ -52,11 +52,17 @@ def generate_story(artist, album):
     return response.choices[0].message.content.strip()
 
 def recommend_similar(artist, album):
-    prompt = f"""
-    Suggest 3 songs similar to any track from the album '{album}' by {artist}. List them in JSON format with fields: title, artist, and why it's similar.
-    """
+    prompt = f'''
+    Suggest 3 songs similar to any track from the album '{album}' by {artist}.
+    For each song, provide:
+    - title
+    - artist
+    - why it's similar
+    - youtube_id (YouTube video ID, e.g. "dQw4w9WgXcQ" for a relevant official music video or audio upload, or null if not available. If you don't know, search for the song on YouTube and provide the correct ID.)
+    Respond in JSON format as a list of objects.
+    '''
     response = openai.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4.1-mini",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7
     )
@@ -175,9 +181,20 @@ if uploaded_image:
                         title = rec.get("title", "Unknown Title")
                         artist = rec.get("artist", "Unknown Artist")
                         why = rec.get("why it's similar", rec.get("why", ""))
+                        youtube_id = rec.get("youtube_id")
                         st.markdown(f"<ul style='margin-bottom: 0.5rem'><li><b>{title}</b> by <i>{artist}</i></li></ul>", unsafe_allow_html=True)
+                        if youtube_id:
+                            # YouTube embed
+                            st.markdown(f'<iframe width="250" height="140" src="https://www.youtube.com/embed/{youtube_id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>', unsafe_allow_html=True)
                         if why:
                             st.markdown(f"<div style='color: #666; margin-bottom: 1rem'>{why}</div>", unsafe_allow_html=True)
-                except Exception:
-                    st.markdown(f"{recs}")
+                except json.JSONDecodeError:
+                    st.error("Could not load recommendations (invalid format).")
+                    with st.expander("Debug: Raw Recommendations Response"):
+                        st.code(recs)
+                except Exception as e:
+                    st.error(f"Could not load recommendations: {e}")
+                    with st.expander("Debug: Raw Recommendations Response"):
+                        st.code(recs)
+
                 st.markdown(f"<b>Estimated Price:</b> {price}", unsafe_allow_html=True)
