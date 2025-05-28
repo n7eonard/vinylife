@@ -3,3 +3,4 @@ pandas==2.2.1
 openai==0.28.1
 Pillow==10.2.0
 httpx==0.24.1
+streamlit-carousel==1.1.2
