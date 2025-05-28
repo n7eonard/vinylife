@@ -235,9 +235,6 @@ if uploaded_image:
                     except Exception as e:
                         st.error(f"AI analysis failed: {str(e)}")
                         st.stop()
-                # Columns for action buttons
-                button_col1, button_col2 = st.columns(2)
-
                 # Show primary guess and actions
                 primary_guess = st.session_state.primary_guess
                 st.subheader("🎯 Primary Guess")
@@ -247,10 +244,16 @@ if uploaded_image:
                     st.markdown(f"**Album:** {primary_guess['album']}")
                 with primary_col2:
                     st.metric("Confidence", f"{primary_guess['confidence']}")
+
+                # Columns for action buttons
+                button_col1, button_col2 = st.columns(2)
+
+                # Handle button clicks outside the guess state check
                 if button_col1.button("✅ Well done!", use_container_width=True, key="well_done_btn"):
                     st.session_state.selected_artist = primary_guess['artist']
                     st.session_state.selected_album = primary_guess['album']
                     st.session_state.step = 'results'
+                    st.rerun()
                 if button_col2.button("❌ Not exactly", use_container_width=True, key="not_exactly_btn"):
                     st.session_state.step = 'alternatives'
                     st.rerun()
