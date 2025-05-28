@@ -8,7 +8,7 @@ import io
 import base64
 
 # === CONFIGURATION ===
-openai.api_key = st.secrets["OPENAI_API_KEY"]  # set this in Streamlit Cloud secrets
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 def extract_vinyl_info_from_image(uploaded_image):
     image_bytes = uploaded_image.read()
@@ -21,29 +21,40 @@ def extract_vinyl_info_from_image(uploaded_image):
         '{"artist": "...", "album": "...", "confidence": 0-100} '
         "If you are unsure, set confidence below 70."
     )
-    response = openai.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": prompt},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "What is the artist and album on this vinyl cover?"},
-                    {"type": "image_url", "image_url": {"url": image_url}}
-                ]
-            }
-        ],
-        max_tokens=500,
-        response_format={"type": "json_object"}
-    )
-    return response.choices[0].message.content.strip()
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini-2024-07-18",
+            messages=[
+                {"role": "system", "content": prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "What is the artist and album on this vinyl cover?"},
+                        {"type": "image_url", "image_url": {"url": image_url}}
+                    ]
+                }
+            ],
+            max_tokens=500
+        )
+        vinyl_info = response.choices[0].message.content.strip()
+
+        if not vinyl_info:
+            raise ValueError("API returned an empty response.")
+
+        # The calling code in the UI already handles JSONDecodeError
+        return vinyl_info
+
+    except Exception as e:
+        # Catch any other potential errors during the API call or response processing
+        raise RuntimeError(f"Error during OpenAI API call: {e}")
 
 def generate_story(artist, album):
     prompt = f"""
     You are a passionate music historian. Write a short and captivating 150-word story about the artist {artist} and their album or EP titled '{album}'.
     Include cultural context, musical style, and legacy.
     """
-    response = openai.chat.completions.create(
+    response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.8
@@ -59,8 +70,8 @@ def recommend_similar(artist, album):
     - why it's similar
     Respond in JSON format as a list of objects.
     '''
-    response = openai.chat.completions.create(
-        model="gpt-4.1-mini",
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7
     )
@@ -91,9 +102,9 @@ if 'primary_guess' not in st.session_state:
 
 if uploaded_image:
     if st.session_state.step != 'results':
-        col1, col2 = st.columns([1, 1])
+        col1, col2 = st.columns([3, 2])
         with col1:
-            st.image(uploaded_image, caption="Uploaded Vinyl Cover", use_container_width=True)
+            st.image(uploaded_image, caption="Uploaded Vinyl Cover", use_column_width=True)
         with col2:
             if st.session_state.step == 'guess':
                 with st.spinner("Analyzing image with AI..."):
@@ -118,14 +129,14 @@ if uploaded_image:
                     st.markdown(f"**Artist:** {primary_guess['artist']}")
                     st.markdown(f"**Album:** {primary_guess['album']}")
                 with primary_col2:
-                    st.metric("Confidence", f"{primary_guess['confidence']}%")
-                col1, col2 = st.columns(2)
-                if col1.button("✅ Well done!", use_container_width=True, key="well_done_btn"):
+                    st.metric("Confidence", f"{primary_guess['confidence']}")
+                button_col1, button_col2 = st.columns(2)
+                if button_col1.button("✅ Well done!", use_container_width=True, key="well_done_btn"):
                     st.session_state.selected_artist = primary_guess['artist']
                     st.session_state.selected_album = primary_guess['album']
                     st.session_state.step = 'results'
                     st.rerun()
-                if col2.button("❌ Not exactly", use_container_width=True, key="not_exactly_btn"):
+                if button_col2.button("❌ Not exactly", use_container_width=True, key="not_exactly_btn"):
                     st.session_state.step = 'alternatives'
                     st.rerun()
             elif st.session_state.step == 'alternatives':
