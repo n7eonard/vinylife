@@ -7,6 +7,40 @@ from PIL import Image
 import io
 import base64
 
+def get_price_range_with_gpt_web_search(artist, album):
+    prompt = (
+        f"Search the web and find the range of current selling prices for the vinyl album '{album}' by '{artist}'. "
+        "Only consider offers and listings for used or new vinyls, not CDs or digital versions. "
+        "List at least 5 prices from marketplaces like Discogs, eBay, Wallapop, or Vinted, indicating the source. "
+        "Then, respond in this exact JSON format:\n"
+        '{"min": <min_price>, "average": <average_price>, "max": <max_price>, "examples": [ {"price": <price>, "source": "<site>", "url": "<url>"}, ... ] }'
+        "\nOnly output valid JSON, nothing else. All prices in EUR."
+    )
+
+    query = f"{artist} {album} vinyl price site:discogs.com OR site:ebay.com OR site:wallapop.com OR site:vinted.es"
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini-search-preview-2025-03-11",
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": query}
+        ],
+        max_tokens=500
+    )
+    import re, json
+    raw = response.choices[0].message.content.strip()
+    # Remove code blocks if present
+    raw = re.sub(r"^```[a-zA-Z0-9]*\s*", "", raw)
+    raw = re.sub(r"\s*```$", "", raw)
+    # Extract JSON
+    match = re.search(r"({.*})", raw, re.DOTALL)
+    if match:
+        raw = match.group(1)
+    try:
+        price_data = json.loads(raw)
+        return price_data
+    except Exception:
+        return None
+
 # Helper function to clean AI JSON responses
 def clean_json_response(response):
     """
@@ -221,44 +255,37 @@ if uploaded_image:
 
             story = generate_story(st.session_state.selected_artist, st.session_state.selected_album, search_results=web_search_results)
             recs = recommend_similar(st.session_state.selected_artist, st.session_state.selected_album)
-            price = estimate_price(st.session_state.selected_artist, st.session_state.selected_album)
-            # Large, bold title at the top
-            st.markdown(f"<h1 style='margin-bottom: 1.5rem'>{st.session_state.selected_artist} — {st.session_state.selected_album}</h1>", unsafe_allow_html=True)
-            # Two columns for Story and Insights
-            col_story, col_insights = st.columns(2)
-            with col_story:
-                st.markdown("### Story:", unsafe_allow_html=True)
-                st.markdown(story, unsafe_allow_html=True)
-            with col_insights:
-                st.markdown("### Similar Songs:", unsafe_allow_html=True)
-                try:
-                    recs_json = json.loads(recs)
-                    for rec in recs_json:
-                        title = rec.get("title", "Unknown Title")
-                        artist = rec.get("artist", "Unknown Artist")
-                        why = rec.get("why it's similar", rec.get("why", ""))
-                        st.markdown(f"<ul style='margin-bottom: 0.5rem'><li><b>{title}</b> by <i>{artist}</i></li></ul>", unsafe_allow_html=True)
-                        if why:
-                            st.markdown(f"<div style='color: #666; margin-bottom: 1rem'>{why}</div>", unsafe_allow_html=True)
-                except json.JSONDecodeError:
-                    st.error("Could not load recommendations (invalid format).")
-                    with st.expander("Debug: Raw Recommendations Response"):
-                        st.code(recs)
-                except Exception as e:
-                    st.error(f"Could not load recommendations: {e}")
-                    with st.expander("Debug: Raw Recommendations Response"):
-                        st.code(recs)
+            
+            # Get price range using the new function
+            price_data = get_price_range_with_gpt_web_search(st.session_state.selected_artist, st.session_state.selected_album)
 
-                st.markdown("### Estimated Price:", unsafe_allow_html=True)
+            st.markdown("### Estimated Price:", unsafe_allow_html=True)
 
-                # Display the price range and scale based on web search results
-                min_price = 250  # Based on search results (example)
-                max_price = 270  # Based on search results (example)
-                avg_price = (min_price + max_price) / 2
+            if price_data and all(k in price_data for k in ["min", "average", "max"]):
+                min_price = price_data['min']
+                max_price = price_data['max']
+                avg_price = price_data['average']
 
-                st.write(f"Based on recent web searches (e.g., eBay), the estimated price range for this vinyl is **€{min_price} - €{max_price}**.")
+                st.write(f"Based on web search, the estimated price range for this vinyl is **€{min_price} - €{max_price}**.")
 
-                # Simple text-based scale (can be improved with Streamlit components if needed)
-                st.markdown(f"<div style='text-align: center; font-size: 1.2em;'>Min Price: €{min_price} | Avg Price: €{avg_price:.0f} | Max Price: €{max_price}</div>", unsafe_allow_html=True)
+                # Simple text-based scale
+                st.markdown(f"<div style='text-align: center; font-size: 1.2em;'>Min: €{min_price} | Avg: €{avg_price:.0f} | Max: €{max_price}</div>", unsafe_allow_html=True)
 
-                # We will add the web search for price here
+                if price_data.get('examples'):
+                    with st.expander("Show price examples"):
+                        for example in price_data['examples']:
+                            price = example.get('price', 'N/A')
+                            source = example.get('source', 'N/A')
+                            url = example.get('url', '#')
+                            if url and url != '#':
+                                st.markdown(f"- €{price} on [{source}]({url})", unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"- €{price} on {source}", unsafe_allow_html=True)
+            elif price_data is not None:
+                 st.warning("Could not retrieve a clear price range from the web search. See raw data below.")
+                 with st.expander("Show raw price data (debug)"):
+                    st.json(price_data)
+            else:
+                st.error("Failed to perform web search for price.")
+
+            # We will add the web search for price here
