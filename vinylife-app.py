@@ -58,7 +58,7 @@ def recommend_similar(artist, album):
     - title
     - artist
     - why it's similar
-    - youtube_id (YouTube video ID, e.g. "dQw4w9WgXcQ" for a relevant official music video or audio upload, or null if not available. If you don't know, search for the song on YouTube and provide the correct ID.)
+    - url (A public URL where the song can be listened to, preferably from YouTube, Spotify, or another music platform. If you don't know the exact URL, provide null.)
     Respond in JSON format as a list of objects.
     '''
     response = openai.chat.completions.create(
@@ -181,11 +181,10 @@ if uploaded_image:
                         title = rec.get("title", "Unknown Title")
                         artist = rec.get("artist", "Unknown Artist")
                         why = rec.get("why it's similar", rec.get("why", ""))
-                        youtube_id = rec.get("youtube_id")
+                        url = rec.get("url")
                         st.markdown(f"<ul style='margin-bottom: 0.5rem'><li><b>{title}</b> by <i>{artist}</i></li></ul>", unsafe_allow_html=True)
-                        if youtube_id:
-                            # YouTube embed
-                            st.markdown(f'<iframe width="250" height="140" src="https://www.youtube.com/embed/{youtube_id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>', unsafe_allow_html=True)
+                        if url:
+                            st.markdown(f'<a href="{url}" target="_blank">🎵 Listen to this song</a>', unsafe_allow_html=True)
                         if why:
                             st.markdown(f"<div style='color: #666; margin-bottom: 1rem'>{why}</div>", unsafe_allow_html=True)
                 except json.JSONDecodeError:
